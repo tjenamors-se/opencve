@@ -1,0 +1,9 @@
+<div class="callout callout-info">
+    <strong>{{ query }}</strong>
+</div>
+
+<ul>
+    {% for cve in cves %}
+    <li>{{ cve.cve_id }}</li>
+    {% endfor %}
+</ul>

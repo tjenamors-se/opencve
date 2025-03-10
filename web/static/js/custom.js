@@ -500,6 +500,7 @@ function getContrastedColor(str){
     handle: '.drag-widget',
     float: false,
     animate: true,
+    cellHeight: 100,
   });
 
   $("#add-widget").on("click", function () {
@@ -546,25 +547,26 @@ function getContrastedColor(str){
 
       gridItems.forEach(node => {
         if (node.el) {
-          const contentEl = node.el.querySelector('.box-body');
-          if (contentEl) {
-            widgets.push({
-              x: node.x,
-              y: node.y,
-              w: node.w,
-              h: node.h,
-              content: contentEl.innerHTML
-            });
-          }
+          console.log(node.config);
+
+          widgets.push({
+            x: node.x,
+            y: node.y,
+            w: node.w,
+            h: node.h,
+            id: node.id,
+            type: node.type,
+            config: node.config,
+            title: 'Lorem ipsum',
+          });
         }
       });
-      console.log(widgets);
 
       $.ajax({
           url: SAVE_DASHBOARD_URL,
           type: "POST",
           contentType: "application/json",
-          data: JSON.stringify({ dashboard: widgets }),
+          data: JSON.stringify(widgets),
           success: function (response) {
               alert("Dashboard sauvegardé !");
           },
@@ -574,9 +576,26 @@ function getContrastedColor(str){
       });
   });
 
+  function loadWidgetData(element) {
+    var widgetElement = $(element);
+    var widgetId = widgetElement.attr("gs-id");
+    console.log(widgetElement);
+
+    $.get(LOAD_WIDGET_DATA_URL.replace("0", widgetId), function(data) {
+        if (data.html) {
+            widgetElement.find(".widget-content").html(data.html); // Insère les données
+        } else {
+            widgetElement.find(".widget-content").html("<p>Erreur de chargement</p>");
+        }
+        widgetElement.find(".widget-loader").hide(); // Cache le loader
+    }).fail(function() {
+        widgetElement.find(".widget-content").html("<p>Erreur lors du chargement</p>");
+        widgetElement.find(".widget-loader").hide();
+    });
+  }
+
   function loadDashboard() {
       $.getJSON(LOAD_DASHBOARD_URL, function (data) {
-          console.log(data);
           if (!data.dashboard) return;
 
           const widgets = data.dashboard;
@@ -586,12 +605,17 @@ function getContrastedColor(str){
             element.innerHTML = `
               <div class="grid-stack-item-content box box-primary">
                 <div class="box-header">
-                    <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> Widget</div>
+                    <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> ${widget.title}</div>
                     <div class="box-tools pull-right">
                         <a class="btn btn-box-tool delete-btn"><i class="fa fa-remove"></i></a>
                     </div>
                 </div>
-                <div class="box-body">${widget.content}</div>
+                <div class="box-body">
+                  <div class="widget-content"></div>
+                  <div class="widget-loader">
+                    <i class="fa fa-spinner fa-spin"></i> Loading...
+                  </div>
+                </div>
               </div>
             `;
 
@@ -602,6 +626,7 @@ function getContrastedColor(str){
             });
 
             grid.save(true);
+            loadWidgetData(element);
           });
       });
   }
