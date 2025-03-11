@@ -1,0 +1,9 @@
+<div class="callout callout-info">
+    List of views in this orga
+</div>
+
+<ul>
+    {% for view in views %}
+    <li>{{ view.name}}: <code>{{ view.query }}</code></li>
+    {% endfor %}
+</ul>

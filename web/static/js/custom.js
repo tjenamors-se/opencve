@@ -504,7 +504,7 @@ function getContrastedColor(str){
   });
 
   $("#add-widget").on("click", function () {
-     const content = '<p>This is a <strong>bold</strong> and <em>italic</em> text example.</p>';
+     const content = '<a href="#">Configure the widget</a>';
 
      // Trouver la position la plus basse actuelle
      let maxY = 0;
