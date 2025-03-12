@@ -3,28 +3,40 @@ import random
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render
-from django.template.loader import render_to_string
 from django.views.generic import TemplateView
 
 
 from dashboards.models import Dashboard
-from dashboards.widgets import ViewsWidget, ViewCvesWidget
+from dashboards.widgets import Widget
 
 
-WIDGET_CLASSES = {"views": ViewsWidget, "view_cves": ViewCvesWidget}
+def list_widgets():
+    return {
+        w.id: {
+            "type": w.id,
+            "name": w.name,
+            "description": w.description,
+            "class": w,
+        }
+        for w in Widget.__subclasses__()
+    }
 
 
 class DashboardView(TemplateView):
     template_name = "dashboards/index.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["widgets"] = list_widgets().values()
+        return context
+
 
 @login_required
 def save_dashboard(request):
     if request.method == "POST":
-        user = request.user
-
-        dashboard_config, _ = Dashboard.objects.get_or_create(user=user)
+        dashboard_config, _ = Dashboard.objects.get_or_create(
+            organization=request.current_organization
+        )
         dashboard_config.config = json.loads(request.body)
         dashboard_config.save()
 
@@ -36,17 +48,7 @@ def save_dashboard(request):
 @login_required
 def load_dashboard(request):
     dashboard = Dashboard.objects.get(organization=request.current_organization)
-
-    widgets = []
-    for widget in dashboard.config:
-        config = widget["config"]
-
-        widget_class = WIDGET_CLASSES.get(widget["type"])
-        if widget_class:
-            html = widget_class(widget["id"], config, request).render()
-            widgets.append({**widget, "content": html})
-
-    return JsonResponse({"dashboard": widgets})
+    return JsonResponse({"widgets": dashboard.config})
 
 
 @login_required
@@ -59,9 +61,10 @@ def load_widget_data(request, widget_id):
 
     time.sleep(random.randint(0, 3))
 
-    widget_class = WIDGET_CLASSES.get(widget["type"])
+    widget_class = list_widgets().get(widget["type"])["class"]
+
     html = ""
     if widget_class:
-        html = widget_class(widget["id"], widget["config"], request).render()
+        html = widget_class(widget["type"], widget["config"], request).render()
 
     return JsonResponse({"html": html})

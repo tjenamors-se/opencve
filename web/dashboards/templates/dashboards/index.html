@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title%}Dashboard - {{ block.super }}{% endblock %}
 {% block navbar_title%}Dashboard{% endblock %}
@@ -12,8 +13,8 @@
 
             <div class="controls">
                 <!--<button id="add-widget">Ajouter un widget</button>-->
-                <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#modal-add-widget">Add widget</button>
-                <button id="save-dashboard">Sauvegarder</button>
+                <button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-add-widget">Add widget</button>
+                <button type="button" class="btn btn-default" id="save-dashboard">Sauvegarder</button>
             </div>
 
             <div class="grid-stack"></div>
@@ -24,28 +25,30 @@
 </section>
 
 <div class="modal fade" id="modal-add-widget">
-    <div class="modal-dialog modal-md">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 <h4 class="modal-title">Add a widget</h4>
             </div>
             <div class="modal-body">
-                <ul class="products-list product-list-in-box">
-                <li class="item">
-                  <div class="product-img">
-                    <img src="https://adminlte.io/themes/AdminLTE/dist/img/default-50x50.gif" alt="Product Image">
-                  </div>
-                  <div class="product-info">
-                    <a class="product-title">List of Views
-                        <span class="pull-right"><button class="btn btn-default btn-sm">Add widget</button></span>
-                    </a>
-                    <span class="product-description">
-                          Display a list of public and private views.
-                        </span>
-                  </div>
-                </li>
-              </ul>
+                <ul class="products-list product-list-in-box widgets-list">
+                    {% for widget in widgets %}
+                    <li class="item">
+                      <div class="product-img">
+                        {% with "img/widgets/"|add:widget.type|add:".png" as image %}
+                        <img src="{% static image %}" alt="Product Image">
+                        {% endwith %}
+                      </div>
+                      <div class="product-info">
+                        <strong class="product-title">{{ widget.name }}
+                            <span class="pull-right"><button class="btn btn-default btn-sm">Add widget</button></span>
+                        </strong>
+                        <span class="product-description">{{ widget.description }}</span>
+                      </div>
+                    </li>
+                    {% endfor %}
+                </ul>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default pull-right" data-dismiss="modal">Close</button>

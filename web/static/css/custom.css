@@ -716,3 +716,12 @@ pre.plainJSON{
 .controls {
   margin-bottom: 20px;
 }
+
+.widgets-list .item .product-img img {
+  width: 200px;
+  height: 120px;
+}
+
+.widgets-list .item .product-info {
+  margin-left: 220px;
+}

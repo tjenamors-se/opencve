@@ -517,6 +517,7 @@ function getContrastedColor(str){
         y: maxY,
         w: 4,
         h: 4,
+        id: crypto.randomUUID(),
         content: content,
       };
 
@@ -547,7 +548,6 @@ function getContrastedColor(str){
 
       gridItems.forEach(node => {
         if (node.el) {
-          console.log(node.config);
 
           widgets.push({
             x: node.x,
@@ -555,12 +555,13 @@ function getContrastedColor(str){
             w: node.w,
             h: node.h,
             id: node.id,
-            type: node.type,
-            config: node.config,
-            title: 'Lorem ipsum',
+            type: node.el.dataset.type,
+            config: JSON.parse(node.el.dataset.config),
+            title: node.el.dataset.title,
           });
         }
       });
+      console.log(widgets);
 
       $.ajax({
           url: SAVE_DASHBOARD_URL,
@@ -581,7 +582,7 @@ function getContrastedColor(str){
     var widgetId = widgetElement.attr("gs-id");
     console.log(widgetElement);
 
-    $.get(LOAD_WIDGET_DATA_URL.replace("0", widgetId), function(data) {
+    $.get(LOAD_WIDGET_DATA_URL.replace("$WIDGET_ID$", widgetId), function(data) {
         if (data.html) {
             widgetElement.find(".widget-content").html(data.html); // Insère les données
         } else {
@@ -596,12 +597,15 @@ function getContrastedColor(str){
 
   function loadDashboard() {
       $.getJSON(LOAD_DASHBOARD_URL, function (data) {
-          if (!data.dashboard) return;
-
-          const widgets = data.dashboard;
+          if (!data.widgets) return;
+          const widgets = data.widgets;
 
           widgets.forEach(widget => {
             const element = document.createElement('div');
+            element.dataset.config = JSON.stringify(widget.config);
+            element.dataset.type = widget.type;
+            element.dataset.title = widget.title;
+
             element.innerHTML = `
               <div class="grid-stack-item-content box box-primary">
                 <div class="box-header">
@@ -612,7 +616,7 @@ function getContrastedColor(str){
                 </div>
                 <div class="box-body">
                   <div class="widget-content"></div>
-                  <div class="widget-loader">
+                  <div class="widget-loader center">
                     <i class="fa fa-spinner fa-spin"></i> Loading...
                   </div>
                 </div>

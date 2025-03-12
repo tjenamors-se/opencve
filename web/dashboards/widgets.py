@@ -6,8 +6,8 @@ from views.models import View
 
 
 class Widget:
-    def __init__(self, widget_id, config, request):
-        self.id = widget_id
+    def __init__(self, type, config, request):
+        self.type = type
         self.config = config
         self.request = request
 
@@ -15,7 +15,7 @@ class Widget:
         raise NotImplementedError
 
     def render_template(self, **kwargs):
-        return render_to_string(f"dashboards/widgets/{self.id}.html", kwargs)
+        return render_to_string(f"dashboards/widgets/{self.type}.html", kwargs)
 
 
 class ViewsWidget(Widget):
@@ -44,3 +44,12 @@ class ViewCvesWidget(Widget):
         view = View.objects.filter(id=self.config["view_id"]).first()
         cves = Search(view.query, self.request.user).query.all()[:20]
         return self.render_template(query=view.query, cves=cves)
+
+
+class FooWidget(Widget):
+    id = "foo"
+    name = "List of foo"
+    description = "Display foobar"
+
+    def render(self):
+        return self.render_template()
