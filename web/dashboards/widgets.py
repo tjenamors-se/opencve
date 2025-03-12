@@ -1,6 +1,7 @@
 from django.db import models
 from django.template.loader import render_to_string
 
+from changes.models import Report
 from cves.search import Search
 from views.models import View
 
@@ -46,10 +47,42 @@ class ViewCvesWidget(Widget):
         return self.render_template(query=view.query, cves=cves)
 
 
-class FooWidget(Widget):
-    id = "foo"
-    name = "List of foo"
-    description = "Display foobar"
+class TagsWidget(Widget):
+    id = "tags"
+    name = "List of tags"
+    description = "Display list of Tags"
 
     def render(self):
-        return self.render_template()
+        tags = self.request.user.tags.all()
+        return self.render_template(tags=tags)
+
+
+class ProjectsWidget(Widget):
+    id = "projects"
+    name = "List of projects"
+    description = "Display list of Projects"
+
+    def render(self):
+        organization = self.request.current_organization
+        projects = organization.projects.all()
+        return self.render_template(
+            organization=organization, projects=projects.order_by("name")
+        )
+
+
+class LastReportsWidget(Widget):
+    id = "last_reports"
+    name = "Last Reports"
+    description = "Display the last reports of all projects"
+
+    def render(self):
+        organization = self.request.current_organization
+        projects = organization.projects.all()
+
+        reports = (
+            Report.objects.filter(project__in=projects)
+            .prefetch_related("changes")
+            .select_related("project")
+            .order_by("-day")[:10]
+        )
+        return self.render_template(organization=organization, reports=reports)

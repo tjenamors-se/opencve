@@ -1,0 +1,7 @@
+{% for tag in tags %}
+<a href="{% url 'cves' %}?tag={{ tag.name }}" data-toggle="tooltip" data-container="body" title="{{ tag.description }}">
+    <span class="label label-tag" style="background-color: {{ tag.color }};">{{ tag.name }}</span>
+</a>
+{% empty %}
+<p class="alert alert-info">You have no tag yet. <a href="{% url 'create_tag' %}">Create a new one?</a></p>
+{% endfor %}
