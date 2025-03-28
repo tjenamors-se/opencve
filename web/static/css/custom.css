@@ -403,6 +403,8 @@ pre.plainJSON{
   color: #fff;
   font-size: 85%;
   font-weight: 600;
+  display: inline-block;
+  margin: 1px;
 }
 
 .row-selected {
@@ -704,13 +706,20 @@ pre.plainJSON{
 }
 
 .view-item code {
-    padding: 6px 8px;
-    font-size: 90%;
-    color: #f8f8f2;
-    background-color: #2d2d2d;
-    border-radius: 6px;
-    display: inline-block;
-    font-family: "Courier New", Courier, monospace;
+  padding: 5px 8px;
+  font-size: 90%;
+  color: #f8f8f2;
+  background-color: #404040;
+  border-radius: 2px;
+  display: inline-block;
+  font-family: "Courier New", Courier, monospace;
+}
+
+.view-item-no-border {
+  margin: 10px 0;
+  background-color: #f9f9f9;
+  padding: 8px;
+  border: 1px solid #e8e8e8;
 }
 
 .controls {
@@ -718,10 +727,15 @@ pre.plainJSON{
 }
 
 .widgets-list .item .product-img img {
-  width: 200px;
-  height: 120px;
+  border: 1px solid #d7d7d7;
+  width: 140px;
+  height: 80px;
 }
 
 .widgets-list .item .product-info {
-  margin-left: 220px;
+  margin-left: 155px;
+}
+
+.widgets-list .item .product-info .product-description {
+  margin-top: 8px;
 }

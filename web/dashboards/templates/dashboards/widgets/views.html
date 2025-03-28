@@ -1,9 +1,26 @@
-<div class="callout callout-info">
-    List of views in this orga
-</div>
-
-<ul>
+{% if views %}
+<div class="nav nav-pills nav-stacked no-padding">
     {% for view in views %}
-    <li>{{ view.name}}: <code>{{ view.query }}</code></li>
+    <div class="view-item">
+        <div>
+            <span class="view-title">
+                {{ view.name }}
+                <span class="label {% if view.privacy == 'public' %}label-primary{% else %}label-warning{% endif %}">
+                    {{ view.privacy }}
+                </span>
+            </span>
+            <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-sm pull-right">
+                <i class="fa fa-play"></i>
+            </a>
+        </div>
+        <p class="view-description">{{ view.description }}</p>
+        <code>{{ view.query }}</code>
+    </div>
     {% endfor %}
-</ul>
+</div>
+{% else %}
+<p class="alert alert-info">
+    No views available.
+    <a href="{% url 'create_view' org_name=request.current_organization.name %}">Create a new one?</a>
+</p>
+{% endif %}

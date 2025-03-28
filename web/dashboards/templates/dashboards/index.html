@@ -2,7 +2,11 @@
 {% load static %}
 
 {% block title%}Dashboard - {{ block.super }}{% endblock %}
-{% block navbar_title%}Dashboard{% endblock %}
+{% block navbar_title%}
+    Dashboard
+    <button type="button" class="btn btn-default btn-sm" data-toggle="modal" data-target="#modal-add-widget">Add widget</button>
+    <button type="button" class="btn btn-default btn-sm" id="save-dashboard">Save</button>
+{% endblock %}
 
 {% block content %}
 
@@ -10,15 +14,7 @@
 
     <div class="row">
         <div class="col-md-12">
-
-            <div class="controls">
-                <!--<button id="add-widget">Ajouter un widget</button>-->
-                <button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-add-widget">Add widget</button>
-                <button type="button" class="btn btn-default" id="save-dashboard">Sauvegarder</button>
-            </div>
-
             <div class="grid-stack"></div>
-
         </div>
     </div>
 
@@ -42,7 +38,7 @@
                       </div>
                       <div class="product-info">
                         <strong class="product-title">{{ widget.name }}
-                            <span class="pull-right"><button class="btn btn-default btn-sm">Add widget</button></span>
+                            <span class="pull-right"><button class="btn btn-default btn-sm add-widget" data-type="{{ widget.type }}">Add widget</button></span>
                         </strong>
                         <span class="product-description">{{ widget.description }}</span>
                       </div>

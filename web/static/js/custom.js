@@ -503,8 +503,9 @@ function getContrastedColor(str){
     cellHeight: 100,
   });
 
-  $("#add-widget").on("click", function () {
-     const content = '<a href="#">Configure the widget</a>';
+  $(".add-widget").on("click", function () {
+    let widgetType = $(this).data("type");
+     const content = '<p class="center"><button class="btn btn-default center configure-widget">Configure the widget</button></p>';
 
      // Trouver la position la plus basse actuelle
      let maxY = 0;
@@ -515,17 +516,18 @@ function getContrastedColor(str){
      const widget = {
         x: 0,
         y: maxY,
-        w: 4,
-        h: 4,
+        w: 6,
+        h: 5,
         id: crypto.randomUUID(),
         content: content,
       };
 
       const element = document.createElement('div');
+      element.dataset.type = widgetType;
       element.innerHTML = `
         <div class="grid-stack-item-content box box-primary">
           <div class="box-header">
-              <div class="box-title"><i class="fa fa-arrows drag-widget"></i> Widget</div>
+              <div class="box-title"><i class="fa fa-arrows drag-widget"></i> <span class="box-title-text">New widget</span></div>
               <div class="box-tools pull-right">
                   <a class="btn btn-box-tool delete-btn"><i class="fa fa-remove"></i></a>
               </div>
@@ -540,6 +542,13 @@ function getContrastedColor(str){
       element.querySelector('.delete-btn').addEventListener('click', () => {
         grid.removeWidget(element);
       });
+
+      $('#modal-add-widget').modal('hide');
+
+      // Scroll to the new element
+      $('html, body').animate({
+          scrollTop: $(element).offset().top - 100
+      }, 600);
   });
 
   $("#save-dashboard").on("click", function () {
@@ -569,10 +578,37 @@ function getContrastedColor(str){
           contentType: "application/json",
           data: JSON.stringify(widgets),
           success: function (response) {
-              alert("Dashboard sauvegardé !");
+              var $button = $('#save-dashboard');
+              var originalText = $button.html();
+
+              // Change button text and style
+              $button.html('<i class="fa fa-check"></i> Saved!')
+                    .removeClass('btn-default')
+                    .addClass('btn-primary');
+
+              // Reset button after 2 seconds
+              setTimeout(function() {
+                  $button.html(originalText)
+                        .removeClass('btn-primary')
+                        .addClass('btn-default');
+              }, 2000);
           },
           error: function (error) {
-              console.error("Erreur lors de la sauvegarde", error);
+              console.error("Error saving dashboard", error);
+              var $button = $('#save-dashboard');
+              var originalText = $button.html();
+
+              // Show error state
+              $button.html('<i class="fa fa-times"></i> Error')
+                    .removeClass('btn-default')
+                    .addClass('btn-danger');
+              
+              // Reset button after 2 seconds
+              setTimeout(function() {
+                  $button.html(originalText)
+                        .removeClass('btn-danger')
+                        .addClass('btn-default');
+              }, 2000);
           }
       });
   });
@@ -580,7 +616,6 @@ function getContrastedColor(str){
   function loadWidgetData(element) {
     var widgetElement = $(element);
     var widgetId = widgetElement.attr("gs-id");
-    console.log(widgetElement);
 
     $.get(LOAD_WIDGET_DATA_URL.replace("$WIDGET_ID$", widgetId), function(data) {
         if (data.html) {
@@ -597,8 +632,8 @@ function getContrastedColor(str){
 
   function loadDashboard() {
       $.getJSON(LOAD_DASHBOARD_URL, function (data) {
-          if (!data.widgets) return;
-          const widgets = data.widgets;
+          if (!data.data) return;
+          const widgets = data.data;
 
           widgets.forEach(widget => {
             const element = document.createElement('div');
@@ -609,7 +644,7 @@ function getContrastedColor(str){
             element.innerHTML = `
               <div class="grid-stack-item-content box box-primary">
                 <div class="box-header">
-                    <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> ${widget.title}</div>
+                    <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> <span class="box-title-text">${widget.title}</span></div>
                     <div class="box-tools pull-right">
                         <a class="btn btn-box-tool delete-btn"><i class="fa fa-remove"></i></a>
                     </div>
@@ -634,7 +669,53 @@ function getContrastedColor(str){
           });
       });
   }
-
   loadDashboard();
+
+  $(".grid-stack").on("click", ".configure-widget", function () {
+    let widgetElement = $(this).closest(".grid-stack-item");
+    let widgetType = widgetElement.data("type");
+
+    $.get(LOAD_WIDGET_CONFIG_URL.replace("$WIDGET_TYPE$", widgetType), function (data) {
+      let originalContent = widgetElement.find(".box-body").html();
+
+      // Replace the content with the new one
+      widgetElement.find(".box-body").html(`
+          <div class="widget-config-container">
+              ${data.html}
+              <div class="config-buttons text-right mt-2">
+                  <button class="btn btn-secondary btn-sm cancel-config">Cancel</button>
+                  <button class="btn btn-primary btn-sm save-config">Save</button>
+              </div>
+          </div>
+      `);
+
+      // Cancel button
+      widgetElement.find(".cancel-config").on("click", function () {
+        widgetElement.find(".box-body").html(originalContent);
+      });
+
+      // Confirm button
+      widgetElement.find(".save-config").on("click", function () {
+        let formData = widgetElement.find("form").serializeArray();
+        let config = {};
+        formData.forEach(item => config[item.name] = item.value);
+        console.log(config);
+
+        widgetElement.attr("data-title", config.title);
+        widgetElement.find(".box-title-text").text(config.title);
+        delete config.title;
+
+        widgetElement.attr("data-config", JSON.stringify(config));
+
+        // Render the type with the config
+        $.post(RENDER_WIDGET_DATA_URL.replace("$WIDGET_TYPE$", widgetType), {config: JSON.stringify(config)}, function (renderData) {
+          widgetElement.find(".box-body").html(renderData.html);
+        });
+
+      });
+
+
+    });
+  });
 
   });

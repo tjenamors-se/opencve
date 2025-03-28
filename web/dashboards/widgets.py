@@ -7,21 +7,28 @@ from views.models import View
 
 
 class Widget:
-    def __init__(self, type, config, request):
-        self.type = type
-        self.config = config
+    def __init__(self, request, data):
+        self.id = data["id"]
+        self.type = data["type"]
         self.request = request
+        self.config = data["config"]
 
     def render(self, **kwargs):
         raise NotImplementedError
 
+    def configure(self):
+        raise NotImplementedError
+
     def render_template(self, **kwargs):
-        return render_to_string(f"dashboards/widgets/{self.type}.html", kwargs)
+        return render_to_string(
+            f"dashboards/widgets/{self.type}.html",
+            {"widget_id": self.id, "widget_type": self.type, **kwargs},
+        )
 
 
 class ViewsWidget(Widget):
     id = "views"
-    name = "List of Views"
+    name = "List of views"
     description = "Display a list of public and private views."
 
     def render(self):
@@ -38,13 +45,27 @@ class ViewsWidget(Widget):
 
 class ViewCvesWidget(Widget):
     id = "view_cves"
-    name = "List of CVEs per view"
+    name = "View CVEs"
     description = "Display the CVEs related to a view."
+
+    def configure(self):
+        # TODO: factoriser cette requete utilisée à 3 endroits
+        views = View.objects.filter(
+            models.Q(privacy="public", organization=self.request.current_organization)
+            | models.Q(
+                privacy="private",
+                user=self.request.user,
+                organization=self.request.current_organization,
+            )
+        )
+        return render_to_string(
+            "dashboards/widgets/view_cves_config.html", {"views": views}
+        )
 
     def render(self):
         view = View.objects.filter(id=self.config["view_id"]).first()
         cves = Search(view.query, self.request.user).query.all()[:20]
-        return self.render_template(query=view.query, cves=cves)
+        return self.render_template(view=view, cves=cves)
 
 
 class TagsWidget(Widget):

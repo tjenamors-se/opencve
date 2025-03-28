@@ -1,7 +1,7 @@
 import json
-import random
 
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.views.generic import TemplateView
 
@@ -22,13 +22,64 @@ def list_widgets():
     }
 
 
-class DashboardView(TemplateView):
+class DashboardView(LoginRequiredMixin, TemplateView):
     template_name = "dashboards/index.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["widgets"] = list_widgets().values()
         return context
+
+
+@login_required
+def load_dashboard(request):
+    dashboard = Dashboard.objects.get(organization=request.current_organization)
+    return JsonResponse({"data": dashboard.config})
+
+
+@login_required
+def load_widget_data(request, widget_id):
+    dashboard = Dashboard.objects.get(organization=request.current_organization)
+    widget_config = next((w for w in dashboard.config if w["id"] == widget_id), None)
+    widget_class = list_widgets().get(widget_config["type"])["class"]
+
+    html = ""
+    if widget_class:
+        html = widget_class(request, widget_config).render()
+
+    return JsonResponse({"html": html})
+
+
+@login_required
+def render_widget_data(request, widget_type):
+    widget_class = list_widgets().get(widget_type)["class"]
+
+    html = ""
+    if widget_class:
+        widget_config = {
+            "id": None,
+            "type": widget_type,
+            "config": json.loads(request.POST.get("config", "{}")),
+        }
+        html = widget_class(request, widget_config).render()
+
+    return JsonResponse({"html": html})
+
+
+@login_required
+def load_widget_config(request, widget_type):
+    widget_class = list_widgets().get(widget_type)["class"]
+
+    html = ""
+    if widget_class:
+        widget_config = {
+            "id": None,
+            "type": widget_type,
+            "config": {},
+        }
+        html = widget_class(request, widget_config).configure()
+
+    return JsonResponse({"html": html})
 
 
 @login_required
@@ -43,28 +94,3 @@ def save_dashboard(request):
         return JsonResponse({"message": "dashboard saved"}, status=200)
 
     return JsonResponse({"error": "method not allowed"}, status=405)
-
-
-@login_required
-def load_dashboard(request):
-    dashboard = Dashboard.objects.get(organization=request.current_organization)
-    return JsonResponse({"widgets": dashboard.config})
-
-
-@login_required
-def load_widget_data(request, widget_id):
-    dashboard = Dashboard.objects.get(organization=request.current_organization)
-    widget = next((w for w in dashboard.config if w["id"] == widget_id), None)
-
-    # To remove
-    import time
-
-    time.sleep(random.randint(0, 3))
-
-    widget_class = list_widgets().get(widget["type"])["class"]
-
-    html = ""
-    if widget_class:
-        html = widget_class(widget["type"], widget["config"], request).render()
-
-    return JsonResponse({"html": html})
