@@ -475,8 +475,16 @@ pre.plainJSON{
   color: #97a0b3;
 }
 
+.box-header .box-header {
+  padding: 8px;
+}
+
 .box-changes .box-title {
-  font-size: 15px;
+  font-size: 14px;
+}
+
+.box-changes .box-title .box-meta {
+  font-size: 14px;
 }
 
 .change-collapsed[aria-expanded=true] .fa-arrow-circle-o-down,

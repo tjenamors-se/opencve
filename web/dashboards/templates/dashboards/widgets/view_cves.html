@@ -15,9 +15,9 @@
         <div class="view-details">
             <div class="row">
                 <div class="col-md-12">
-                    <p class="view-description">{{ view.description }}</p>
+                    <p></p>
                     <code>{{ view.query }}</code>
-                    <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-sm run-button">
+                    <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-sm run-button" data-toggle="tooltip" data-container="body" title="Run this query">
                         <i class="fa fa-play"></i>
                     </a>
                 </div>
@@ -64,3 +64,9 @@
         </tbody>
     </table>
 </div>
+
+<script>
+$(function() {
+    $('.view-item [data-toggle="tooltip"]').tooltip();
+});
+</script>

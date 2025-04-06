@@ -2,18 +2,15 @@
 <div class="nav nav-pills nav-stacked no-padding">
     {% for view in views %}
     <div class="view-item">
-        <div>
+        <div class="view-header">
             <span class="view-title">
                 {{ view.name }}
                 <span class="label {% if view.privacy == 'public' %}label-primary{% else %}label-warning{% endif %}">
                     {{ view.privacy }}
                 </span>
             </span>
-            <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-sm pull-right">
-                <i class="fa fa-play"></i>
-            </a>
+            <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-xs" data-toggle="tooltip" data-container="body" title="Run this query"><i class="fa fa-play"></i></a>
         </div>
-        <p class="view-description">{{ view.description }}</p>
         <code>{{ view.query }}</code>
     </div>
     {% endfor %}
@@ -24,3 +21,18 @@
     <a href="{% url 'create_view' org_name=request.current_organization.name %}">Create a new one?</a>
 </p>
 {% endif %}
+
+<style>
+.view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+</style>
+
+<script>
+$(function() {
+    $('.view-item [data-toggle="tooltip"]').tooltip();
+});
+</script>
