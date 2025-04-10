@@ -1,3 +1,4 @@
+{% if reports %}
 <table class="table table-hover table-striped">
     <thead>
         <tr>
@@ -16,3 +17,10 @@
         {% endfor %}
     </tbody>
 </table>
+{% else %}
+<p class="alert alert-info">
+    No reports available yet.
+    <br />
+    This widget will populate automatically when CVEs are created or updated within your projects.
+</p>
+{% endif %}

@@ -7,7 +7,7 @@
         <label for="view-select">Select a View</label>
         <select class="form-control" id="view-select" name="view_id">
             {% for view in views %}
-            <option value="{{ view.id }}" {% if view.id == config.view_id %}selected{% endif %}>{{ view.name }}</option>
+            <option value="{{ view.id }}" {% if view.id|stringformat:"s" == config.view_id %}selected{% endif %}>{{ view.name }}</option>
             {% endfor %}
         </select>
     </div>

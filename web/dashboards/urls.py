@@ -4,7 +4,7 @@ from dashboards.views import (
     DashboardView,
     save_dashboard,
     load_dashboard,
-    load_widget_config,
+    LoadWidgetConfigView,
     load_widget_data,
     render_widget_data,
 )
@@ -18,7 +18,7 @@ urlpatterns = [
     ),
     path(
         "ajax/load_widget_config/<widget_type>",
-        load_widget_config,
+        LoadWidgetConfigView.as_view(),
         name="load_widget_config",
     ),
     path(

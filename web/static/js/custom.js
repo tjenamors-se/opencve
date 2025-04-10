@@ -504,7 +504,7 @@ function getContrastedColor(str){
   });
 
   $(".add-widget").on("click", function () {
-    let widgetType = $(this).data("type");
+     let widgetType = $(this).data("type");
      const content = '<p class="center"><button class="btn btn-default center configure-widget">Configure the widget</button></p>';
 
      // Trouver la position la plus basse actuelle
@@ -527,8 +527,9 @@ function getContrastedColor(str){
       element.innerHTML = `
         <div class="grid-stack-item-content box box-primary">
           <div class="box-header">
-              <div class="box-title"><i class="fa fa-arrows drag-widget"></i> <span class="box-title-text">New widget</span></div>
+              <div class="box-title"><i class="fa fa-arrows drag-widget"></i> <span class="box-title-text">New Widget</span></div>
               <div class="box-tools pull-right">
+                  <a class="btn btn-box-tool configure-widget"><i class="fa fa-edit"></i></a>
                   <a class="btn btn-box-tool delete-btn"><i class="fa fa-remove"></i></a>
               </div>
           </div>
@@ -646,6 +647,7 @@ function getContrastedColor(str){
                 <div class="box-header">
                     <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> <span class="box-title-text">${widget.title}</span></div>
                     <div class="box-tools pull-right">
+                        <a class="btn btn-box-tool configure-widget"><i class="fa fa-edit"></i></a>
                         <a class="btn btn-box-tool delete-btn"><i class="fa fa-remove"></i></a>
                     </div>
                 </div>
@@ -673,9 +675,11 @@ function getContrastedColor(str){
 
   $(".grid-stack").on("click", ".configure-widget", function () {
     let widgetElement = $(this).closest(".grid-stack-item");
-    let widgetType = widgetElement.data("type");
+    let widgetConfig = JSON.parse(widgetElement.attr("data-config") || "{}");
+    let widgetType = widgetElement.attr("data-type");
+    let widgetTitle = widgetElement.attr("data-title");
 
-    $.get(LOAD_WIDGET_CONFIG_URL.replace("$WIDGET_TYPE$", widgetType), function (data) {
+    $.post(LOAD_WIDGET_CONFIG_URL.replace("$WIDGET_TYPE$", widgetType), JSON.stringify({title: widgetTitle, config: widgetConfig}), function (data) {
       let originalContent = widgetElement.find(".box-body").html();
 
       // Replace the content with the new one
@@ -699,7 +703,6 @@ function getContrastedColor(str){
         let formData = widgetElement.find("form").serializeArray();
         let config = {};
         formData.forEach(item => config[item.name] = item.value);
-        console.log(config);
 
         widgetElement.attr("data-title", config.title);
         widgetElement.find(".box-title-text").text(config.title);

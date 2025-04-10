@@ -19,6 +19,10 @@
         </tbody>
     </table>
     {% else %}
-    <p class="alert alert-info">You have no project yet. <a href="{% url 'create_project' org_name=organization.name %}">Create a new one?</a></p>
+    <p class="alert alert-info">
+        You don’t have any projects yet.
+        <br />
+        Create one by <a href="{% url 'create_project' org_name=organization.name %}">clicking here</a>.
+    </p>
     {% endif %}
 </div>

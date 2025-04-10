@@ -4,10 +4,12 @@
     <div class="view-item">
         <div class="view-header">
             <span class="view-title">
+                {% if view.privacy == 'public' %}
+                <i class="fa fa-globe" data-toggle="tooltip" data-container="body" title="Public view"></i>
+                {% else %}
+                <i class="fa fa-lock" data-toggle="tooltip" data-container="body" title="Private view"></i>
+                {% endif %}
                 {{ view.name }}
-                <span class="label {% if view.privacy == 'public' %}label-primary{% else %}label-warning{% endif %}">
-                    {{ view.privacy }}
-                </span>
             </span>
             <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-xs" data-toggle="tooltip" data-container="body" title="Run this query"><i class="fa fa-play"></i></a>
         </div>
@@ -17,8 +19,9 @@
 </div>
 {% else %}
 <p class="alert alert-info">
-    No views available.
-    <a href="{% url 'create_view' org_name=request.current_organization.name %}">Create a new one?</a>
+    You don’t have any saved views yet.
+    <br />
+    Create one by <a href="{% url 'create_view' org_name=request.current_organization.name %}">clicking here</a> to save your custom query.
 </p>
 {% endif %}
 

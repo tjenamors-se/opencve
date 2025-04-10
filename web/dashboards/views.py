@@ -3,6 +3,7 @@ import json
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
+from django.views import View
 from django.views.generic import TemplateView
 
 
@@ -27,13 +28,25 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["widgets"] = list_widgets().values()
+        context["widgets"] = sorted(list_widgets().values(), key=lambda x: x["name"])
         return context
 
 
 @login_required
 def load_dashboard(request):
-    dashboard = Dashboard.objects.get(organization=request.current_organization)
+    dashboard = Dashboard.objects.filter(
+        organization=request.current_organization, user=request.user, is_default=True
+    ).first()
+
+    if not dashboard:
+        dashboard = Dashboard.objects.create(
+            organization=request.current_organization,
+            user=request.user,
+            name="Mon Dashboard",
+            is_default=True,
+            config=Dashboard.get_default_config(),
+        )
+
     return JsonResponse({"data": dashboard.config})
 
 
@@ -45,7 +58,7 @@ def load_widget_data(request, widget_id):
 
     html = ""
     if widget_class:
-        html = widget_class(request, widget_config).render()
+        html = widget_class(request, widget_config).index()
 
     return JsonResponse({"html": html})
 
@@ -61,9 +74,30 @@ def render_widget_data(request, widget_type):
             "type": widget_type,
             "config": json.loads(request.POST.get("config", "{}")),
         }
-        html = widget_class(request, widget_config).render()
+        html = widget_class(request, widget_config).index()
 
     return JsonResponse({"html": html})
+
+
+class LoadWidgetConfigView(LoginRequiredMixin, View):
+    def post(self, request, widget_type):
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON payload"}, status=400)
+
+        widget_class = list_widgets().get(widget_type)["class"]
+        if not widget_class:
+            return JsonResponse({"error": "Invalid widget type"}, status=400)
+
+        widget_config = {
+            "id": None,
+            "type": widget_type,
+            "config": {"title": data.get("title"), **data.get("config", {})},
+        }
+
+        html = widget_class(request, widget_config).config()
+        return JsonResponse({"html": html})
 
 
 @login_required
@@ -77,7 +111,7 @@ def load_widget_config(request, widget_type):
             "type": widget_type,
             "config": {},
         }
-        html = widget_class(request, widget_config).configure()
+        html = widget_class(request, widget_config).config()
 
     return JsonResponse({"html": html})
 
