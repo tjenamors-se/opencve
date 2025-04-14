@@ -571,7 +571,6 @@ function getContrastedColor(str){
           });
         }
       });
-      console.log(widgets);
 
       $.ajax({
           url: SAVE_DASHBOARD_URL,
@@ -620,21 +619,21 @@ function getContrastedColor(str){
 
     $.get(LOAD_WIDGET_DATA_URL.replace("$WIDGET_ID$", widgetId), function(data) {
         if (data.html) {
-            widgetElement.find(".widget-content").html(data.html); // Insère les données
+            widgetElement.find(".widget-content").html(data.html);
         } else {
-            widgetElement.find(".widget-content").html("<p>Erreur de chargement</p>");
+            widgetElement.find(".widget-content").html("<p>An error occurred while loading the widget.</p>");
         }
-        widgetElement.find(".widget-loader").hide(); // Cache le loader
+        widgetElement.find(".widget-loader").hide();
     }).fail(function() {
-        widgetElement.find(".widget-content").html("<p>Erreur lors du chargement</p>");
+        widgetElement.find(".widget-content").html("<p>An error occurred while loading the widget.</p>");
         widgetElement.find(".widget-loader").hide();
     });
   }
 
   function loadDashboard() {
       $.getJSON(LOAD_DASHBOARD_URL, function (data) {
-          if (!data.data) return;
-          const widgets = data.data;
+          if (!data.widgets) return;
+          const widgets = data.widgets;
 
           widgets.forEach(widget => {
             const element = document.createElement('div');
@@ -708,11 +707,10 @@ function getContrastedColor(str){
         widgetElement.find(".box-title-text").text(config.title);
         delete config.title;
 
-        widgetElement.attr("data-config", JSON.stringify(config));
-
         // Render the type with the config
         $.post(RENDER_WIDGET_DATA_URL.replace("$WIDGET_TYPE$", widgetType), {config: JSON.stringify(config)}, function (renderData) {
           widgetElement.find(".box-body").html(renderData.html);
+          widgetElement.attr("data-config", JSON.stringify(renderData.config));
         });
 
       });

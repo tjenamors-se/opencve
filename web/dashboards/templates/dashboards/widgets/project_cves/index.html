@@ -1,10 +1,10 @@
 {% load opencve_extras %}
 
-
+{% if config.show_project_info == 1 %}
 <div class="view-item view-item-no-border">
     <div class="pointer change-collapsed collapsed" data-toggle="collapse" href="#{{ widget_id }}" aria-expanded="false">
         <span class="product-vendors-title">
-            View <strong>{{ view.name }}</strong>
+            Project <strong>{{ project.name }}</strong>
             <span class="box-meta">
                 <i class="fa fa-plus"></i>
                 <i class="fa fa-minus"></i>
@@ -15,17 +15,15 @@
         <div class="view-details">
             <div class="row">
                 <div class="col-md-12">
-                    <p></p>
-                    <code>{{ view.query }}</code>
-                    <a href="{% url 'cves' %}?q={{ view.query }}" class="btn btn-default btn-sm run-button" data-toggle="tooltip" data-container="body" title="Run this query">
-                        <i class="fa fa-play"></i>
-                    </a>
+                    {% include 'projects/includes/subscriptions.html' %}
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endif %}
 
+{% if cves %}
 <div class="table-responsive">
     <table class="table table-hover table-striped">
         <thead>
@@ -54,23 +52,14 @@
                     <small>{{ cve.updated_at|date:"d/m" }}</small>
                 </td>
             </tr>
-            {% empty %}
-            <tr>
-                <td colspan="3" class="text-center">
-                    <p class="alert alert-info">No CVEs found.</p>
-                </td>
-            </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
 <p class="center">
-    <a class="btn btn-default btn-sm" href="{% url 'cves' %}?q={{ view.query }}">View All CVEs</a>
+    <a class="btn btn-default btn-sm" href="{% url 'project_vulnerabilities' org_name=request.current_organization project_name=project.name %}">View All CVEs</a>
 </p>
-
-<script>
-$(function() {
-    $('.view-item [data-toggle="tooltip"]').tooltip();
-});
-</script>
+{% else %}
+<p class="alert alert-info">No CVEs found.</p>
+{% endif %}

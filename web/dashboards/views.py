@@ -32,51 +32,110 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         return context
 
 
-@login_required
-def load_dashboard(request):
-    dashboard = Dashboard.objects.filter(
-        organization=request.current_organization, user=request.user, is_default=True
-    ).first()
-
-    if not dashboard:
-        dashboard = Dashboard.objects.create(
+class LoadDashboardView(LoginRequiredMixin, View):
+    def get(self, request):
+        dashboard = Dashboard.objects.filter(
             organization=request.current_organization,
             user=request.user,
-            name="Mon Dashboard",
             is_default=True,
-            config=Dashboard.get_default_config(),
+        ).first()
+
+        if not dashboard:
+            dashboard = Dashboard.objects.create(
+                organization=request.current_organization,
+                user=request.user,
+                name="Mon Dashboard",
+                is_default=True,
+                config=Dashboard.get_default_config(),
+            )
+
+        return JsonResponse(dashboard.config)
+
+
+class SaveDashboardView(LoginRequiredMixin, View):
+    @staticmethod
+    def validate_widgets_config(request, widgets):
+        """
+        Loop on every widget to validate its config.
+        """
+        cleaned_config = []
+
+        for widget in widgets:
+            cleaned_widget = dict(widget)
+
+            widget_class = list_widgets().get(widget["type"])["class"]
+            if not widget_class:
+                return JsonResponse({"error": "Invalid widget type"}, status=400)
+
+            try:
+                widget_instance = widget_class(request, widget)
+            except ValueError as e:
+                return False, str(e)
+
+            # Save the cleaned configuration
+            cleaned_widget["config"] = widget_instance.configuration
+            cleaned_config.append(cleaned_widget)
+
+        return True, cleaned_config
+
+    def post(self, request):
+        dashboard_config, _ = Dashboard.objects.get_or_create(
+            organization=request.current_organization,
+            user=request.user,
+            is_default=True,
         )
 
-    return JsonResponse({"data": dashboard.config})
+        widgets = json.loads(request.body)
+        is_clean, result = self.validate_widgets_config(request, widgets)
+
+        if not is_clean:
+            return JsonResponse({"error": result}, status=400)
+
+        dashboard_config.config = {"widgets": result}
+        dashboard_config.save()
+
+        return JsonResponse({"message": "dashboard saved"}, status=200)
 
 
-@login_required
-def load_widget_data(request, widget_id):
-    dashboard = Dashboard.objects.get(organization=request.current_organization)
-    widget_config = next((w for w in dashboard.config if w["id"] == widget_id), None)
-    widget_class = list_widgets().get(widget_config["type"])["class"]
+class LoadWidgetDataView(LoginRequiredMixin, View):
+    def get(self, request, widget_id):
+        dashboard = Dashboard.objects.get(organization=request.current_organization)
+        widget_config = next(
+            (w for w in dashboard.config["widgets"] if w["id"] == widget_id), None
+        )
 
-    html = ""
-    if widget_class:
-        html = widget_class(request, widget_config).index()
+        widget_class = list_widgets().get(widget_config["type"])["class"]
+        if not widget_class:
+            return JsonResponse({"error": "Invalid widget type"}, status=400)
 
-    return JsonResponse({"html": html})
+        try:
+            html = widget_class(request, widget_config).index()
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+        return JsonResponse({"html": html})
 
 
-@login_required
-def render_widget_data(request, widget_type):
-    widget_class = list_widgets().get(widget_type)["class"]
+class RenderWidgetDataView(LoginRequiredMixin, View):
+    def post(self, request, widget_type):
+        widget_class = list_widgets().get(widget_type)["class"]
+        if not widget_class:
+            return JsonResponse({"error": "Invalid widget type"}, status=400)
 
-    html = ""
-    if widget_class:
         widget_config = {
             "id": None,
             "type": widget_type,
+            "title": None,
             "config": json.loads(request.POST.get("config", "{}")),
         }
-        html = widget_class(request, widget_config).index()
 
-    return JsonResponse({"html": html})
+        try:
+            widget = widget_class(request, widget_config)
+            html = widget.index()
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+        return JsonResponse({"html": html, "config": widget.configuration})
 
 
 class LoadWidgetConfigView(LoginRequiredMixin, View):
@@ -93,38 +152,13 @@ class LoadWidgetConfigView(LoginRequiredMixin, View):
         widget_config = {
             "id": None,
             "type": widget_type,
-            "config": {"title": data.get("title"), **data.get("config", {})},
+            "title": data.get("title", {}),
+            "config": data.get("config", {}),
         }
 
-        html = widget_class(request, widget_config).config()
+        try:
+            html = widget_class(request, widget_config).config()
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
         return JsonResponse({"html": html})
-
-
-@login_required
-def load_widget_config(request, widget_type):
-    widget_class = list_widgets().get(widget_type)["class"]
-
-    html = ""
-    if widget_class:
-        widget_config = {
-            "id": None,
-            "type": widget_type,
-            "config": {},
-        }
-        html = widget_class(request, widget_config).config()
-
-    return JsonResponse({"html": html})
-
-
-@login_required
-def save_dashboard(request):
-    if request.method == "POST":
-        dashboard_config, _ = Dashboard.objects.get_or_create(
-            organization=request.current_organization
-        )
-        dashboard_config.config = json.loads(request.body)
-        dashboard_config.save()
-
-        return JsonResponse({"message": "dashboard saved"}, status=200)
-
-    return JsonResponse({"error": "method not allowed"}, status=405)
