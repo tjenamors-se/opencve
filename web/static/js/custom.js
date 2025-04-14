@@ -493,6 +493,13 @@ function getContrastedColor(str){
     });
   }
 
+  function sanitizeText(text) {
+      const div = document.createElement('div');
+      div.appendChild(document.createTextNode(text));
+      return div.innerHTML;
+  }
+
+
   /*
    Homepage Grid
   */
@@ -507,7 +514,7 @@ function getContrastedColor(str){
      let widgetType = $(this).data("type");
      const content = '<p class="center"><button class="btn btn-default center configure-widget">Configure the widget</button></p>';
 
-     // Trouver la position la plus basse actuelle
+     // Find the lowest position
      let maxY = 0;
      grid.engine.nodes.forEach(node => {
       maxY = Math.max(maxY, node.y + node.h);
@@ -557,7 +564,7 @@ function getContrastedColor(str){
       const gridItems = grid.engine.nodes;
 
       gridItems.forEach(node => {
-        if (node.el) {
+        if (node.el && node.el.dataset.config != undefined) {
 
           widgets.push({
             x: node.x,
@@ -644,7 +651,7 @@ function getContrastedColor(str){
             element.innerHTML = `
               <div class="grid-stack-item-content box box-primary">
                 <div class="box-header">
-                    <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> <span class="box-title-text">${widget.title}</span></div>
+                    <div class="box-title"><i class="fa fa-arrows drag-widget" style="font-size: 0.80em;"></i> <span class="box-title-text">${sanitizeText(widget.title)}</span></div>
                     <div class="box-tools pull-right">
                         <a class="btn btn-box-tool configure-widget"><i class="fa fa-edit"></i></a>
                         <a class="btn btn-box-tool delete-btn"><i class="fa fa-remove"></i></a>
@@ -708,13 +715,13 @@ function getContrastedColor(str){
         delete config.title;
 
         // Render the type with the config
-        $.post(RENDER_WIDGET_DATA_URL.replace("$WIDGET_TYPE$", widgetType), {config: JSON.stringify(config)}, function (renderData) {
+        var widgetId = widgetElement.attr("gs-id");
+        $.post(RENDER_WIDGET_DATA_URL.replace("$WIDGET_TYPE$", widgetType), {id: widgetId, config: JSON.stringify(config)}, function (renderData) {
           widgetElement.find(".box-body").html(renderData.html);
           widgetElement.attr("data-config", JSON.stringify(renderData.config));
         });
 
       });
-
 
     });
   });

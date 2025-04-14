@@ -8,19 +8,7 @@ from django.views.generic import TemplateView
 
 
 from dashboards.models import Dashboard
-from dashboards.widgets import Widget
-
-
-def list_widgets():
-    return {
-        w.id: {
-            "type": w.id,
-            "name": w.name,
-            "description": w.description,
-            "class": w,
-        }
-        for w in Widget.__subclasses__()
-    }
+from dashboards.widgets import list_widgets
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -97,37 +85,13 @@ class SaveDashboardView(LoginRequiredMixin, View):
         return JsonResponse({"message": "dashboard saved"}, status=200)
 
 
-class LoadWidgetDataView(LoginRequiredMixin, View):
-    def get(self, request, widget_id):
-        dashboard = Dashboard.objects.get(organization=request.current_organization)
-        widget_config = next(
-            (w for w in dashboard.config["widgets"] if w["id"] == widget_id), None
-        )
-
-        widget_class = list_widgets().get(widget_config["type"])["class"]
-        if not widget_class:
+class BaseWidgetDataView(LoginRequiredMixin, View):
+    def _render_widget(self, request, widget_config, include_config=False):
+        widget_class_entry = list_widgets().get(widget_config["type"])
+        if not widget_class_entry:
             return JsonResponse({"error": "Invalid widget type"}, status=400)
 
-        try:
-            html = widget_class(request, widget_config).index()
-        except ValueError as e:
-            return JsonResponse({"error": str(e)}, status=400)
-
-        return JsonResponse({"html": html})
-
-
-class RenderWidgetDataView(LoginRequiredMixin, View):
-    def post(self, request, widget_type):
-        widget_class = list_widgets().get(widget_type)["class"]
-        if not widget_class:
-            return JsonResponse({"error": "Invalid widget type"}, status=400)
-
-        widget_config = {
-            "id": None,
-            "type": widget_type,
-            "title": None,
-            "config": json.loads(request.POST.get("config", "{}")),
-        }
+        widget_class = widget_class_entry["class"]
 
         try:
             widget = widget_class(request, widget_config)
@@ -135,7 +99,39 @@ class RenderWidgetDataView(LoginRequiredMixin, View):
         except ValueError as e:
             return JsonResponse({"error": str(e)}, status=400)
 
-        return JsonResponse({"html": html, "config": widget.configuration})
+        data = {"html": html}
+        if include_config:
+            data["config"] = widget.configuration
+
+        return JsonResponse(data)
+
+
+class LoadWidgetDataView(BaseWidgetDataView):
+    def get(self, request, widget_id):
+        dashboard = Dashboard.objects.get(organization=request.current_organization)
+        widget_config = next(
+            (w for w in dashboard.config["widgets"] if w["id"] == widget_id), None
+        )
+        if not widget_config:
+            return JsonResponse({"error": "Widget not found"}, status=404)
+
+        return self._render_widget(request, widget_config)
+
+
+class RenderWidgetDataView(BaseWidgetDataView):
+    def post(self, request, widget_type):
+        widget_class_entry = list_widgets().get(widget_type)
+        if not widget_class_entry:
+            return JsonResponse({"error": "Invalid widget type"}, status=400)
+
+        widget_config = {
+            "id": request.POST.get("id"),
+            "type": widget_type,
+            "title": None,
+            "config": json.loads(request.POST.get("config", "{}")),
+        }
+
+        return self._render_widget(request, widget_config, include_config=True)
 
 
 class LoadWidgetConfigView(LoginRequiredMixin, View):

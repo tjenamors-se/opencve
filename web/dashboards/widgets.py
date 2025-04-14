@@ -1,5 +1,3 @@
-import uuid
-
 from django.db import models
 from django.template.loader import render_to_string
 
@@ -11,17 +9,42 @@ from opencve.utils import is_valid_uuid
 from projects.models import Project
 
 
+def list_widgets():
+    return {
+        w.id: {
+            "type": w.id,
+            "name": w.name,
+            "description": w.description,
+            "class": w,
+        }
+        for w in Widget.__subclasses__()
+    }
+
+
 class Widget:
     allowed_config_keys = []
 
     def __init__(self, request, data):
-        self.id = data["id"]
-        self.type = data["type"]
         self.request = request
+        self.id = self.validate_id(data["id"])
+        self.type = self.validate_type(data["type"])
         self.title = data["title"]
         self.configuration = (
             self.validate_config(data["config"]) if data.get("config") else {}
         )
+
+    @staticmethod
+    def validate_id(id):
+        if id and not is_valid_uuid(id):
+            raise ValueError("Incorrect configuration")
+        return id
+
+    @staticmethod
+    def validate_type(type):
+        allowed_types = [t["type"] for t in list_widgets().values()]
+        if type not in allowed_types:
+            raise ValueError("Incorrect configuration")
+        return type
 
     def validate_config(self, config):
         return {k: v for k, v in config.items() if k in self.allowed_config_keys}
@@ -61,7 +84,7 @@ class Widget:
 
 class ActivityWidget(Widget):
     id = "activity"
-    name = "CVE Activity"
+    name = "CVEs Activity"
     description = "Displays the most recent CVE changes across all projects."
     allowed_config_keys = ["activities_view"]
 
@@ -92,7 +115,7 @@ class ActivityWidget(Widget):
 
 class ViewsWidget(Widget):
     id = "views"
-    name = "Saved Views"
+    name = "Views"
     description = (
         "Shows the list of your private views and your organization’s public views."
     )
@@ -115,8 +138,31 @@ class ViewCvesWidget(Widget):
     description = "Displays CVEs associated with a selected saved view."
     allowed_config_keys = ["view_id", "show_view_info"]
 
+    def validate_config(self, config):
+        cleaned = super().validate_config(config)
+
+        # Ensures the view is correctly formatted
+        view_id = cleaned.get("view_id", "")
+        if not is_valid_uuid(view_id):
+            raise ValueError("Incorrect configuration")
+
+        # Ensure the view exists
+        view = View.objects.filter(
+            id=view_id, organization=self.request.current_organization
+        ).first()
+        if not view:
+            raise ValueError("Incorrect configuration")
+
+        # If the view is private, it must be owned by the user
+        if view.privacy == "private" and view.user != self.request.user:
+            raise ValueError("Incorrect configuration")
+
+        # By default, show_view_info is True
+        cleaned["show_view_info"] = 1 if cleaned.get("show_view_info") else 0
+
+        return cleaned
+
     def config(self):
-        # TODO: Move this query to a shared function since it’s used in multiple places
         views = View.objects.filter(
             models.Q(privacy="public", organization=self.request.current_organization)
             | models.Q(
@@ -128,7 +174,10 @@ class ViewCvesWidget(Widget):
         return self.render_config(views=views)
 
     def index(self):
-        view = View.objects.filter(id=self.configuration["view_id"]).first()
+        view = View.objects.filter(
+            id=self.configuration["view_id"],
+            organization=self.request.current_organization,
+        ).first()
         cves = Search(view.query, self.request.user).query.all()[:20]
         return self.render_index(view=view, cves=cves)
 
@@ -142,16 +191,25 @@ class ProjectCvesWidget(Widget):
     def validate_config(self, config):
         cleaned = super().validate_config(config)
 
-        # Ensures the project is correctly formatted and
-        # owned by the current organization
+        # Ensures the project is correctly formatted
         project_id = cleaned.get("project_id", "")
-        if (
-            not is_valid_uuid(project_id)
-            or not Project.objects.filter(
-                id=project_id, organization=self.request.current_organization
-            ).exists()
-        ):
+        if not is_valid_uuid(project_id):
             raise ValueError("Incorrect configuration")
+
+        # Ensure the project is owned by the current organization
+        project = (
+            Project.objects.filter(
+                id=project_id, organization=self.request.current_organization
+            )
+            .only("active")
+            .first()
+        )
+        if not project:
+            raise ValueError("Incorrect configuration")
+
+        # Ensure the project is active
+        if not project.active:
+            raise ValueError("Inactive Project")
 
         # By default, show_project_info is True
         cleaned["show_project_info"] = 1 if cleaned.get("show_project_info") else 0
@@ -160,7 +218,8 @@ class ProjectCvesWidget(Widget):
 
     def config(self):
         projects = Project.objects.filter(
-            organization=self.request.current_organization
+            organization=self.request.current_organization,
+            active=True,
         ).all()
         return self.render_config(projects=projects)
 
@@ -185,7 +244,7 @@ class ProjectCvesWidget(Widget):
 
 class TagsWidget(Widget):
     id = "tags"
-    name = "User Tags"
+    name = "Tags"
     description = "Shows the list of tags you created to categorize CVEs."
 
     def index(self):
@@ -208,7 +267,7 @@ class ProjectsWidget(Widget):
 
 class LastReportsWidget(Widget):
     id = "last_reports"
-    name = "Recent Reports"
+    name = "Last Reports"
     description = (
         "Displays the latest CVE reports generated for your organization’s projects."
     )

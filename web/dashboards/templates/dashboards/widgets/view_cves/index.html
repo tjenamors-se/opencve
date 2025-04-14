@@ -1,10 +1,10 @@
 {% load opencve_extras %}
 
-
+{% if config.show_view_info == 1 %}
 <div class="view-item view-item-no-border">
     <div class="pointer change-collapsed collapsed" data-toggle="collapse" href="#{{ widget_id }}" aria-expanded="false">
         <span class="product-vendors-title">
-            View <strong>{{ view.name }}</strong>
+            <strong>{{ view.name }}</strong>
             <span class="box-meta">
                 <i class="fa fa-plus"></i>
                 <i class="fa fa-minus"></i>
@@ -25,6 +25,7 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <div class="table-responsive">
     <table class="table table-hover table-striped">
