@@ -4,6 +4,7 @@ from django.db import models
 
 from opencve.models import BaseModel
 from organizations.models import Organization
+from projects.models import Project
 from users.models import User
 
 
@@ -31,9 +32,36 @@ class Dashboard(BaseModel):
         ]
 
     @staticmethod
-    def get_default_config():
-        return {
-            "widgets": [
+    def get_default_config(request):
+        project = Project.objects.filter(
+            organization=request.current_organization, active=True
+        ).first()
+
+        if project:
+            widgets = [
+                {
+                    "h": 7,
+                    "w": 8,
+                    "x": 0,
+                    "y": 0,
+                    "id": str(uuid.uuid4()),
+                    "type": "activity",
+                    "title": "CVE Activity",
+                    "config": {"activities_view": "all"},
+                },
+                {
+                    "h": 5,
+                    "w": 8,
+                    "x": 0,
+                    "y": 7,
+                    "id": str(uuid.uuid4()),
+                    "type": "project_cves",
+                    "title": "CVEs by Project",
+                    "config": {"project_id": str(project.id), "show_project_info": 1},
+                },
+            ]
+        else:
+            widgets = [
                 {
                     "h": 12,
                     "w": 8,
@@ -43,7 +71,11 @@ class Dashboard(BaseModel):
                     "type": "activity",
                     "title": "CVE Activity",
                     "config": {"activities_view": "all"},
-                },
+                }
+            ]
+
+        widgets.extend(
+            [
                 {
                     "h": 3,
                     "w": 4,
@@ -85,4 +117,5 @@ class Dashboard(BaseModel):
                     "config": {},
                 },
             ]
-        }
+        )
+        return {"widgets": widgets}

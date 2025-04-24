@@ -1,6 +1,5 @@
 import json
 
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.views import View
@@ -34,7 +33,7 @@ class LoadDashboardView(LoginRequiredMixin, View):
                 user=request.user,
                 name="Mon Dashboard",
                 is_default=True,
-                config=Dashboard.get_default_config(),
+                config=Dashboard.get_default_config(request),
             )
 
         return JsonResponse(dashboard.config)
@@ -51,9 +50,9 @@ class SaveDashboardView(LoginRequiredMixin, View):
         for widget in widgets:
             cleaned_widget = dict(widget)
 
+            if widget["type"] not in list_widgets():
+                return False, "Invalid widget type"
             widget_class = list_widgets().get(widget["type"])["class"]
-            if not widget_class:
-                return JsonResponse({"error": "Invalid widget type"}, status=400)
 
             try:
                 widget_instance = widget_class(request, widget)

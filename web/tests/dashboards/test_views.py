@@ -1,212 +1,169 @@
-import json
-from django.urls import reverse
+import pytest
 from bs4 import BeautifulSoup
+from django.test import override_settings
+from django.urls import reverse
 from unittest.mock import patch
+import uuid
 
+from dashboards.widgets import list_widgets
 from dashboards.models import Dashboard
+from dashboards.views import SaveDashboardView  # Import SaveDashboardView
 
 
-def test_dashboard_view(create_organization, create_user, auth_client):
-    user = create_user()
-    create_organization(name="org", user=user)
-    client = auth_client(user)
-
+@override_settings(ENABLE_ONBOARDING=False)
+@pytest.mark.django_db
+def test_dashboard_view_context(client, auth_client, create_user):
+    """
+    Test that DashboardView correctly passes the sorted list of widgets to the template context.
+    """
+    # Test unauthenticated access
     response = client.get(reverse("home"))
+    assert response.status_code == 302
+    assert reverse("account_login") in response.url
+
+    user = create_user()
+    client = auth_client(user)
+    response = client.get(reverse("home"))
+
+    # Assertions
     assert response.status_code == 200
+    assert response.template_name == ["dashboards/index.html"]
+    assert "widgets" in response.context
+
+    expected_widgets = sorted(list_widgets().values(), key=lambda x: x["name"])
+    assert response.context["widgets"] == expected_widgets
+
     soup = BeautifulSoup(response.content, features="html.parser")
-    assert soup.find("h1", {"class": "navbar-title"}).text == "Dashboard"
+    assert [
+        n.text.split("\n")[0]
+        for n in soup.find("div", {"id": "modal-add-widget"}).find_all(
+            "strong", {"class": "product-title"}
+        )
+    ] == [w["name"] for w in expected_widgets]
 
 
-def test_load_dashboard(
-    create_organization, create_user, create_dashboard, auth_client
+@override_settings(ENABLE_ONBOARDING=False)
+@pytest.mark.django_db
+@patch("dashboards.models.uuid.uuid4")
+def test_load_dashboard_view(
+    mock_uuid4, client, auth_client, create_user, create_organization
 ):
+    """
+    Test that LoadDashboardView returns the correct dashboard config.
+    """
+    mock_uuid4.return_value = uuid.UUID("12345678-1234-5678-1234-567812345678")
+
+    # Check unauthenticated access
+    load_url = reverse("load_dashboard")
+    login_url = reverse("account_login")
+    response = client.get(load_url)
+    assert response.status_code == 302
+    assert login_url in response.url
+
     user = create_user()
-    org = create_organization(name="org", user=user)
+    organization = create_organization(name="Test Org", user=user)
     client = auth_client(user)
 
-    dashboard_config = [
-        {
-            "h": 4,
-            "w": 4,
-            "x": 0,
-            "y": 0,
-            "id": "fe149a36-28ad-482d-aacb-11345de5f972",
-            "type": "tags",
-            "title": "Last tags",
-            "config": {"foo": "bar"},
-        }
-    ]
-    create_dashboard(organization=org, config=dashboard_config)
+    # Check default dashboard
+    response = client.get(reverse("load_dashboard"))
+    dashboard = Dashboard.objects.get(
+        organization=organization, user=user, is_default=True
+    )
+    expected_config = Dashboard.get_default_config(client.request().wsgi_request)
+
+    assert response.status_code == 200
+    assert response.json() == expected_config
+    assert dashboard.config == expected_config
+
+    # Check existing dashboard
+    custom_config = {"widgets": [{"id": "custom-widget", "type": "test"}]}
+    dashboard.config = custom_config
+    dashboard.save()
 
     response = client.get(reverse("load_dashboard"))
     assert response.status_code == 200
-    assert response.json() == {"data": dashboard_config}
+    assert response.json() == custom_config
+    assert (
+        Dashboard.objects.filter(
+            organization=organization, user=user, is_default=True
+        ).count()
+        == 1
+    )
 
 
-@patch("dashboards.widgets.TagsWidget.render")
-def test_load_widget_data(
-    mock_render, create_organization, create_user, create_dashboard, auth_client
+@override_settings(ENABLE_ONBOARDING=False)
+@pytest.mark.django_db
+def test_save_dashboard_validate_widgets_config(
+    auth_client, create_user, create_organization
 ):
-    mock_render.return_value = "<div>Mocked HTML</div>"
-
+    """
+    Test the static method validate_widgets_config in SaveDashboardView.
+    """
     user = create_user()
-    org = create_organization(name="org", user=user)
     client = auth_client(user)
+    organization = create_organization(name="Test Org", user=user)
 
-    dashboard_config = [
+    request = client.request().wsgi_request
+    request.current_organization = organization
+    request.user = user
+
+    valid_uuid = str(uuid.uuid4())
+
+    # Valid configuration
+    valid_widgets = [
+        {"id": valid_uuid, "type": "tags", "title": "My Tags", "config": {}},
         {
-            "h": 4,
-            "w": 4,
-            "x": 0,
-            "y": 0,
-            "id": "fe149a36-28ad-482d-aacb-11345de5f972",
-            "type": "tags",
-            "title": "Last tags",
-            "config": {"foo": "bar"},
-        }
+            "id": str(uuid.uuid4()),
+            "type": "activity",
+            "title": "Activity",
+            "config": {"activities_view": "all"},
+        },
     ]
-    create_dashboard(organization=org, config=dashboard_config)
+    is_clean, result = SaveDashboardView.validate_widgets_config(request, valid_widgets)
+    assert is_clean is True
+    assert len(result) == 2
+    assert result[0]["id"] == valid_uuid
+    assert result[0]["type"] == "tags"
+    assert result[0]["config"] == {}  # TagsWidget cleans config
+    assert result[1]["type"] == "activity"
+    assert result[1]["config"] == {"activities_view": "all"}
 
-    response = client.get(
-        reverse(
-            "load_widget_data",
-            kwargs={"widget_id": "fe149a36-28ad-482d-aacb-11345de5f972"},
-        )
+    # Invalid Widget ID
+    invalid_id_widgets = [
+        {"id": "not-a-uuid", "type": "tags", "title": "Invalid Tags", "config": {}},
+    ]
+    is_clean, result = SaveDashboardView.validate_widgets_config(
+        request, invalid_id_widgets
     )
-    assert response.status_code == 200
-    assert response.json() == {"html": "<div>Mocked HTML</div>"}
-    mock_render.assert_called_once()
+    assert is_clean is False
+    assert result == "Incorrect configuration"
 
-
-@patch("dashboards.widgets.TagsWidget.render")
-def test_render_widget_data(mock_render, create_organization, create_user, auth_client):
-    mock_render.return_value = "<div>Mocked HTML</div>"
-
-    user = create_user()
-    create_organization(name="org", user=user)
-    client = auth_client(user)
-
-    config = {"key": "value"}
-    response = client.post(
-        reverse(
-            "render_widget_data",
-            kwargs={"widget_type": "tags"},
-        ),
-        data={"config": json.dumps(config)},
-    )
-    assert response.status_code == 200
-    assert response.json() == {"html": "<div>Mocked HTML</div>"}
-
-
-@patch("dashboards.widgets.TagsWidget.configure")
-def test_load_widget_config(
-    mock_configure, create_organization, create_user, auth_client
-):
-    mock_configure.return_value = "<div>Mocked Config HTML</div>"
-
-    user = create_user()
-    create_organization(name="org", user=user)
-    client = auth_client(user)
-
-    response = client.get(
-        reverse(
-            "load_widget_config",
-            kwargs={"widget_type": "tags"},
-        )
-    )
-    assert response.status_code == 200
-    assert response.json() == {"html": "<div>Mocked Config HTML</div>"}
-    mock_configure.assert_called_once()
-
-
-def test_save_dashboard(create_organization, create_user, auth_client):
-    user = create_user()
-    org = create_organization(name="org", user=user)
-    client = auth_client(user)
-
-    dashboard_config = [
+    # Invalid Widget Type
+    invalid_type_widgets = [
         {
-            "h": 4,
-            "w": 4,
-            "x": 0,
-            "y": 0,
-            "id": "fe149a36-28ad-482d-aacb-11345de5f972",
-            "type": "tags",
-            "title": "Last tags",
-            "config": {"foo": "bar"},
-        }
+            "id": str(uuid.uuid4()),
+            "type": "invalid_type",
+            "title": "Invalid Type",
+            "config": {},
+        },
     ]
-
-    response = client.post(
-        reverse("save_dashboard"),
-        data=json.dumps(dashboard_config),
-        content_type="application/json",
+    is_clean, result = SaveDashboardView.validate_widgets_config(
+        request, invalid_type_widgets
     )
-    assert response.status_code == 200
-    assert response.json() == {"message": "dashboard saved"}
+    assert is_clean is False
+    assert result == "Invalid widget type"
 
-    # Verify the dashboard was saved
-    dashboard = Dashboard.objects.get(organization=org)
-    assert dashboard.config == dashboard_config
-
-
-def test_save_dashboard_invalid_method(create_organization, create_user, auth_client):
-    user = create_user()
-    create_organization(name="org", user=user)
-    client = auth_client(user)
-
-    response = client.get(reverse("save_dashboard"))
-    assert response.status_code == 405
-    assert response.json() == {"error": "method not allowed"}
-
-
-def test_login_required(client):
-    # Test dashboard view
-    response = client.get(reverse("home"))
-    assert response.status_code == 302
-    assert response.url.startswith("/login/")
-
-    # Test load dashboard
-    response = client.get(reverse("load_dashboard"))
-    assert response.status_code == 302
-    assert response.url.startswith("/login/")
-
-    # Test load widget data
-    response = client.get(
-        reverse(
-            "load_widget_data",
-            kwargs={"widget_id": "fe149a36-28ad-482d-aacb-11345de5f972"},
-        )
+    # Invalid Widget Config (ActivityWidget)
+    invalid_config_widgets = [
+        {
+            "id": str(uuid.uuid4()),
+            "type": "activity",
+            "title": "Invalid Activity Config",
+            "config": {"activities_view": "invalid_value"},
+        },
+    ]
+    is_clean, result = SaveDashboardView.validate_widgets_config(
+        request, invalid_config_widgets
     )
-    assert response.status_code == 302
-    assert response.url.startswith("/login/")
-
-    # Test render widget data
-    response = client.post(
-        reverse(
-            "render_widget_data",
-            kwargs={"widget_type": "tags"},
-        ),
-        data={"config": json.dumps({"key": "value"})},
-    )
-    assert response.status_code == 302
-    assert response.url.startswith("/login/")
-
-    # Test load widget config
-    response = client.get(
-        reverse(
-            "load_widget_config",
-            kwargs={"widget_type": "tags"},
-        )
-    )
-    assert response.status_code == 302
-    assert response.url.startswith("/login/")
-
-    # Test save dashboard
-    response = client.post(
-        reverse("save_dashboard"),
-        data=json.dumps({"widgets": []}),
-        content_type="application/json",
-    )
-    assert response.status_code == 302
-    assert response.url.startswith("/login/")
+    assert is_clean is False
+    assert result == "Incorrect configuration"

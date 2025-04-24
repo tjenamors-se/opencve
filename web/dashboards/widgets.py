@@ -107,8 +107,8 @@ class ActivityWidget(Widget):
             if vendors:
                 query = query.filter(cve__vendors__has_any_keys=vendors)
 
-        # Get the last 10 changes
-        changes = query.order_by("-created_at")[:10]
+        # Get the last 20 changes
+        changes = query.order_by("-created_at")[:20]
 
         return self.render_index(changes=changes)
 

@@ -13,6 +13,7 @@ from dashboards.models import Dashboard
 from organizations.models import Membership, Organization
 from projects.models import Notification, Project
 from views.models import View
+from changes.models import Change  # Import locally to avoid potential circular imports
 
 
 TESTS_DIR = os.path.dirname(os.path.realpath(__file__))
@@ -191,7 +192,13 @@ def create_variable(db):
 
 @pytest.fixture(scope="function")
 def create_dashboard(db):
-    def _create_dashboard(organization, config={}):
-        return Dashboard.objects.create(organization=organization, config=config)
+    def _create_dashboard(organization, user, name, config={}, is_default=False):
+        return Dashboard.objects.create(
+            organization=organization,
+            user=user,
+            name=name,
+            config=config,
+            is_default=is_default,
+        )
 
     return _create_dashboard
