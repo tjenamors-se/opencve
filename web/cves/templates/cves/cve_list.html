@@ -63,7 +63,7 @@
     {% endif %}
 
     <div class="row">
-        <div class="col-md-9">
+        <div class="col-md-7">
             <div class="box box-primary">
                 <div class="box-header with-border">
                     <h3 class="box-title">Search</h3>
@@ -138,16 +138,42 @@
                 {% else %}
                 <div class="box-body" id="advanced-search">
                     <form method="GET">
+                        {% if request.GET.cwe %}
+                        <input type="hidden" name="cwe" value="{{ request.GET.cwe }}" />
+                        {% endif %}
+                         {% if request.GET.vendor and not vendor %} {# Keep vendor if passed in URL but not part of dynamic form #}
+                        <input type="hidden" name="vendor" value="{{ request.GET.vendor }}" />
+                        {% endif %}
+                        {% if request.GET.product and not product %} {# Keep product if passed in URL but not part of dynamic form #}
+                        <input type="hidden" name="product" value="{{ request.GET.product }}" />
+                        {% endif %}
+
+                        {# Restore original layout #}
                         <div class="row">
-                            <div class="col-md-8">
-                                {{ search_form.q|as_crispy_field }}
+                            <div class="col-md-9">
+                                {{ search_form.q|as_crispy_field }} {# Original search input #}
                             </div>
-                            <div class="col-md-4">
-                                <button type="submit" class="btn btn-primary">Search</button>
-                                <div class="btn-group">
-                                  <button type="button" class="btn btn-default" id="save-view-button"><i class="fa fa-save"></i> Save</button>
-                                  <button type="button" class="btn btn-default" data-toggle="modal" data-target="#modal-load-views"><i class="fa fa-download"></i> Load</button>
+                            <div class="col-md-3">
+                                <div class="btn-group" style="width: 100%;"> {# Use btn-group for layout #}
+                                    {# Main Search Button #}
+                                    <button type="submit" class="btn btn-primary" style="width: 60%;"><i class="fa fa-search"></i> Search</button>
+                                    {# Dropdown for other actions #}
+                                    <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="width: 40%;">
+                                        <i class="fa fa-wrench"></i> <span class="caret"></span>
+                                        <span class="sr-only">Toggle Dropdown</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-right">
+                                        <li><a href="#" data-toggle="modal" data-target="#queryBuilderModal"><i class="fa fa-cogs fa-fw"></i> Query Builder</a></li>
+                                        <li><a href="#" id="save-view-button"><i class="fa fa-save fa-fw"></i> Save Query</a></li>
+                                        <li><a href="#" data-toggle="modal" data-target="#modal-load-views"><i class="fa fa-download fa-fw"></i> Load Query</a></li>
+                                    </ul>
                                 </div>
+                            </div>
+                            {# Help Text - Below the input/buttons #}
+                            <div class="col-md-12">
+                                <small class="form-text text-muted">
+                                     Use the <a href='#' data-toggle='modal' data-target='#queryBuilderModal'>Query Builder</a> to create your own search query, or check out the <a href='https://docs.opencve.io/guides/advanced_search/'>documentation</a> to learn the search syntax.
+                                </small>
                             </div>
                         </div>
                     </form>
@@ -155,14 +181,22 @@
                 {% endif %}
             </div>
         </div>
-
-        <div class="col-md-3">
-            <div class="info-box">
-                <span class="info-box-icon bg-primary"><i class="fa fa-shield"></i></span>
-
-                <div class="info-box-content">
-                    <span class="info-box-text">Total</span>
-                    <span class="info-box-number">{{ page_obj.paginator.count }} CVE</span>
+        <div class="col-md-5">
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Search Examples</h3>
+                </div>
+                <div class="box-body">
+                    <a href="{% url 'cves' %}?q=vendor:microsoft+AND+cvss31%3E%3D9" class="query-example-tag">Crit. Microsoft</a>
+                    <a href="{% url 'cves' %}?q=vendor:apache+AND+cvss31%3E%3D7" class="query-example-tag">High Apache</a>
+                    <a href="{% url 'cves' %}?q=cwe:CWE-89" class="query-example-tag">SQL Injection (CWE-89)</a>
+                    <a href="{% url 'cves' %}?q=vendor:linux+AND+product:linux_kernel" class="query-example-tag">Linux Kernel</a>
+                    <a href="{% url 'cves' %}?q=cvss31%3E%3D7+AND+cvss31%3C9" class="query-example-tag">High (CVSS 3.1)</a>
+                    <a href="{% url 'cves' %}?q=vendor:apache+AND+product:struts" class="query-example-tag">Apache Struts</a>
+                    <a href="{% url 'cves' %}?q=description%3A%27remote+code+execution%27" class="query-example-tag">RCE (Remote Code Execution)</a>
+                    <a href="{% url 'cves' %}?q=cwe:CWE-79" class="query-example-tag">XSS (CWE-79)</a>
+                    <a href="{% url 'cves' %}?q=cvss40%3E%3D9" class="query-example-tag">Critical (CVSS 4.0)</a>
+                    <a href="{% url 'cves' %}?q=userTag%3Atocheck" class="query-example-tag">CVEs to check</a>
                 </div>
             </div>
         </div>
@@ -172,6 +206,9 @@
         <div class='col-md-12'>
             {% if cves %}
             <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title">Search Results <small>({{ page_obj.paginator.count }} CVEs found)</small></h3>
+                </div>
                 <div class="box-body table-responsive no-padding">
                     {% include "cves/_cve_table.html" %}
 
@@ -202,6 +239,119 @@
         </div>
     </div>
 </section>
+
+{# --- Add Query Builder Modal --- #}
+<div class="modal fade" id="queryBuilderModal" tabindex="-1" role="dialog" aria-labelledby="queryBuilderModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="queryBuilderModalLabel">Advanced Search Builder</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        {# --- Move the dynamic query builder content here --- #}
+        <div id="dynamic-query-builder">
+            {# Static Fields #}
+            <div class="form-group row">
+                <label for="query-builder-cve" class="col-sm-2 col-form-label">CVE ID</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control query-builder-input" id="query-builder-cve" data-field="cve" placeholder="e.g., CVE-2023-1234">
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="query-builder-description" class="col-sm-2 col-form-label">Description</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control query-builder-input" id="query-builder-description" data-field="description" placeholder="Text search in description...">
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="query-builder-title" class="col-sm-2 col-form-label">Title</label>
+                <div class="col-sm-10">
+                    <input type="text" class="form-control query-builder-input" id="query-builder-title" data-field="title" placeholder="Text search in title...">
+                </div>
+            </div>
+
+            {# CVSS Fields #}
+            <div class="form-group row">
+                <label class="col-sm-2 col-form-label">CVSS Score</label>
+                <div class="col-sm-3"> {# Adjusted col size #}
+                    <select class="form-control query-builder-input cvss-version" data-field-prefix="cvss">
+                        <option value="cvss40" selected>CVSS v4.0</option>
+                        <option value="cvss31">CVSS v3.1</option>
+                        <option value="cvss30">CVSS v3.0</option>
+                        <option value="cvss20">CVSS v2.0</option>
+                    </select>
+                </div>
+                <div class="col-sm-2">
+                    <select class="form-control query-builder-input cvss-operator">
+                        <option value=">=" selected>&gt;=</option>
+                        <option value="<=">&lt;=</option>
+                        <option value="=">=</option>
+                    </select>
+                </div>
+                <div class="col-sm-5"> {# Adjusted col size #}
+                    <input type="number" step="0.1" min="0" max="10" class="form-control query-builder-input cvss-score" placeholder="Score (0.0 - 10.0)">
+                </div>
+            </div>
+
+            {# Repeatable Fields #}
+            <div id="vendor-filters">
+                <div class="form-group row filter-group">
+                    <label for="query-builder-vendor-1" class="col-sm-2 col-form-label">Vendor</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control query-builder-input" id="query-builder-vendor-1" data-field="vendor" placeholder="e.g., microsoft">
+                    </div>
+                    <div class="col-sm-1">
+                        <button type="button" class="btn btn-success btn-sm add-filter" data-target="#vendor-filters" data-field="vendor" title="Add another vendor filter"><i class="fa fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+            <div id="product-filters">
+                <div class="form-group row filter-group">
+                    <label for="query-builder-product-1" class="col-sm-2 col-form-label">Product</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control query-builder-input" id="query-builder-product-1" data-field="product" placeholder="e.g., windows">
+                    </div>
+                    <div class="col-sm-1">
+                        <button type="button" class="btn btn-success btn-sm add-filter" data-target="#product-filters" data-field="product" title="Add another product filter"><i class="fa fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+            {% if user.is_authenticated %}
+            <div id="usertag-filters">
+                <div class="form-group row filter-group">
+                    <label for="query-builder-usertag-1" class="col-sm-2 col-form-label">User Tag</label>
+                    <div class="col-sm-9">
+                        <input type="text" class="form-control query-builder-input" id="query-builder-usertag-1" data-field="userTag" placeholder="e.g., important">
+                    </div>
+                    <div class="col-sm-1">
+                        <button type="button" class="btn btn-success btn-sm add-filter" data-target="#usertag-filters" data-field="userTag" title="Add another user tag filter"><i class="fa fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="form-group row">
+                <label class="col-sm-2 col-form-label">User Tag</label>
+                <div class="col-sm-10">
+                    <p class="form-control-static text-muted">
+                        <a href="{% url 'account_login' %}?next={{ request.path }}">Log in</a> to filter by user tags.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {# --- End of dynamic query builder content --- #}
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="reset-query-builder" class="btn btn-secondary pull-left"><i class="fa fa-undo"></i> Reset Builder</button>
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{# --- End Query Builder Modal --- #}
 
 {% if request.current_organization %}
 <div class="modal fade" id="modal-save-view">

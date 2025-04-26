@@ -712,3 +712,30 @@ pre.plainJSON{
     display: inline-block;
     font-family: "Courier New", Courier, monospace;
 }
+
+
+
+.query-example-tag {
+  display: inline-block;
+  padding: 5px 10px;
+  margin: 3px;
+  text-decoration: none;
+  font-size: 90%;
+  font-weight: 600;
+  line-height: 1.5;
+  font-size: 12px;
+  color: #685aeb;
+  padding: 1px 5px;
+  border-radius: 10px;
+  background: #F4F3FF;
+  border: 1px solid #5648D8;
+  transition: background-color 0.1s ease;
+}
+
+.query-example-tag:hover,
+.query-example-tag:focus {
+  background-color: #e3e0ff;
+  border: 1px solid #3225ac;
+  color: #5648D8;
+  outline: none;
+}

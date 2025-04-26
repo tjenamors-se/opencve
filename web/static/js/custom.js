@@ -493,4 +493,131 @@ function getContrastedColor(str){
     });
   }
 
+  // ##### CVE List Page - Dynamic Query Builder START #####
+  if ($('#dynamic-query-builder').length) {
+    const $modal = $('#queryBuilderModal'); // Target the modal itself
+    const $builder = $('#dynamic-query-builder'); // Builder is inside the modal
+    const $queryOutput = $('#id_q'); // Target the actual form input on the MAIN page
+
+    // Remove the readonly attribute and style if it was added previously
+    $queryOutput.prop('readonly', false).css('background-color', '');
+
+    function updateQuery() {
+        let queryParts = [];
+
+        // Handle static fields (Note: using $builder which is inside the modal)
+        $builder.find('.query-builder-input[data-field]').not('.filter-group .query-builder-input').each(function() {
+            const field = $(this).data('field');
+            const value = $(this).val().trim();
+            if (value) {
+                 if (field === 'cve') {
+                   queryParts.push(`cve:${value.toUpperCase()}`);
+                 } else if (['description', 'title'].includes(field)) {
+                   // Use field name prefix for description and title too
+                   queryParts.push(`${field}:${value}`);
+                 }
+            }
+        });
+
+        // Handle CVSS
+        const cvssVersion = $builder.find('.cvss-version').val();
+        const cvssOperator = $builder.find('.cvss-operator').val();
+        const cvssScore = $builder.find('.cvss-score').val().trim();
+        if (cvssVersion && cvssOperator && cvssScore !== '' && !isNaN(parseFloat(cvssScore))) {
+            let score = parseFloat(cvssScore);
+            if (score >= 0 && score <= 10) {
+                queryParts.push(`${cvssVersion}${cvssOperator}${score}`);
+            }
+        }
+
+        // Handle repeatable fields (Vendor, Product, UserTag)
+        ['vendor', 'product', 'userTag'].forEach(fieldType => {
+            $builder.find(`#${fieldType}-filters .query-builder-input[data-field="${fieldType}"]`).each(function() {
+                const value = $(this).val().trim();
+                if (value) {
+                    const requiresQuotes = /[\s\:\?\*]/.test(value);
+                    const formattedValue = requiresQuotes ? `\"${value}\"` : value;
+                    queryParts.push(`${fieldType}:${formattedValue}`);
+                }
+            });
+        });
+
+        const finalQuery = queryParts.join(' AND ');
+        $queryOutput.val(finalQuery); // Update the main page input
+    }
+
+    // Event listener for all inputs within the builder (delegated to the modal)
+    $modal.on('input change', '.query-builder-input', updateQuery);
+
+    // Add filter button logic (delegated to the modal)
+    let filterCounts = { vendor: 1, product: 1, userTag: 1 };
+    $modal.on('click', '.add-filter', function() {
+        const targetSelector = $(this).data('target');
+        const fieldType = $(this).data('field');
+        filterCounts[fieldType]++;
+        const newFilterId = `query-builder-${fieldType}-${filterCounts[fieldType]}`;
+        const placeholder = fieldType === 'userTag' ? 'e.g., critical' : (fieldType === 'vendor' ? 'e.g., apache' : 'e.g., log4j');
+
+        const newFilterHtml = `
+            <div class="form-group row filter-group mt-2">
+                <label for="${newFilterId}" class="col-sm-2 col-form-label"></label> {# No label for subsequent rows #}
+                <div class="col-sm-9">
+                    <input type="text" class="form-control query-builder-input" id="${newFilterId}" data-field="${fieldType}" placeholder="${placeholder}">
+                </div>
+                <div class="col-sm-1">
+                    <button type="button" class="btn btn-danger btn-sm remove-filter" title="Remove this filter"><i class="fa fa-minus"></i></button>
+                </div>
+            </div>`;
+        // Append inside the modal
+        $modal.find(targetSelector).append(newFilterHtml);
+    });
+
+    // Remove filter button logic (delegated to the modal)
+    $modal.on('click', '.remove-filter', function() {
+        $(this).closest('.filter-group').remove();
+        updateQuery(); // Update query after removing a filter
+    });
+
+    // Reset button logic (targets elements inside the modal)
+    $modal.on('click', '#reset-query-builder', function() {
+        // Reset simple inputs within the modal
+        $builder.find('.query-builder-input[type="text"], .query-builder-input[type="number"]').val('');
+        // Reset selects to default/first option within the modal
+        $builder.find('select.query-builder-input').each(function() {
+             // For CVSS Version and Operator, find the 'selected' option in the HTML and set that as default
+             const defaultSelected = $(this).find('option[selected]').val();
+             if (defaultSelected) {
+                 $(this).val(defaultSelected);
+             } else {
+                 $(this).prop('selectedIndex', 0); // Fallback to first option if no 'selected' attr
+             }
+        });
+
+        // Remove added filters, keeping the first one (within the modal)
+         ['vendor', 'product', 'userTag'].forEach(fieldType => {
+             const filterContainer = $builder.find(`#${fieldType}-filters`);
+             if (filterContainer.length) {
+                filterContainer.find('.filter-group:not(:first)').remove();
+                // Clear the first filter input as well
+                filterContainer.find('.filter-group:first .query-builder-input').val('');
+             }
+         });
+
+        updateQuery(); // Update the main page query display to be empty (or default)
+    });
+
+    // Reset builder fields every time the modal is shown for a clean state
+    $modal.on('show.bs.modal', function () {
+        $modal.find('#reset-query-builder').trigger('click');
+        // Reset filter counts as well
+        filterCounts = { vendor: 1, product: 1, userTag: 1 };
+    });
+
+     // When modal is closed, ensure focus returns appropriately if needed, or do nothing special.
+     // $modal.on('hidden.bs.modal', function () { ... });
+
+    // Remove the initial state handling based on #id_q value, as we now reset on modal open
+  }
+  // ##### CVE List Page - Dynamic Query Builder END #####
+
   });
